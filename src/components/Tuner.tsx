@@ -238,15 +238,24 @@ export default function Tuner() {
           </ul>
         </div>
 
+
+        {/* 'Sa': { freq: 512.63, range: 30 },
+  'Re': { freq: 570.66, range: 30 },
+  'Ga': { freq: 640.63, range: 30 },
+  'Ma': { freq: 700.23, range: 30 },
+  'Pa': { freq: 392.00, range: 30 },
+  'Dha': { freq: 440.00, range: 30 },
+  'Ni': { freq: 493.88, range: 30 }, */}
+
         {/* Note Reference */}
         <div className="bg-white p-6 rounded-xl shadow-sm">
           <h3 className="font-semibold text-slate-800 mb-4">Indian Classical Notes (Swaras)</h3>
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
             {[
-              { note: 'Sa', freq: 261.63 },
-              { note: 'Re', freq: 293.66 },
-              { note: 'Ga', freq: 329.63 },
-              { note: 'Ma', freq: 349.23 },
+              { note: 'Sa', freq: 512.63 },
+              { note: 'Re', freq: 570.66 },
+              { note: 'Ga', freq: 640.63 },
+              { note: 'Ma', freq: 700.23 },
               { note: 'Pa', freq: 392.00 },
               { note: 'Dha', freq: 440.00 },
               { note: 'Ni', freq: 493.88 },

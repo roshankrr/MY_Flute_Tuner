@@ -138,11 +138,22 @@ export default function PlayAlong() {
     }
   };
 
-  const parseSongNotes = (notesString: string): string[] => {
+  const parseSongNotes = (notesString: string): { note: string; duration: number }[] => {
     return notesString
       .split(/[\s\-]+/)
       .map(s => s.trim())
-      .filter(s => s.length > 0);
+      .filter(s => s.length > 0)
+      .map(s => {
+        // Check if format is "note:duration" (e.g., "Sa:1000")
+        const parts = s.split(':');
+        if (parts.length === 2) {
+          const note = parts[0];
+          const duration = parseInt(parts[1], 10);
+          return { note, duration: isNaN(duration) ? SWAR_DURATION_MS : duration };
+        }
+        // Default format, just note name
+        return { note: s, duration: SWAR_DURATION_MS };
+      });
   };
 
   const startPlayAlong = (song: PracticeSong) => {
@@ -152,17 +163,17 @@ export default function PlayAlong() {
     const swarItems: SwarItem[] = [];
     let currentTime = 0;
 
-    noteArray.forEach((note) => {
+    noteArray.forEach(({ note, duration }) => {
       if (note) {
         swarItems.push({
           swar: note,
           startTime: currentTime,
-          endTime: currentTime + SWAR_DURATION_MS,
+          endTime: currentTime + duration,
           played: null,
           confidence: 0,
           status: 'pending',
         });
-        currentTime += SWAR_DURATION_MS + GAP_DURATION_MS;
+        currentTime += duration + GAP_DURATION_MS;
       }
     });
 
@@ -400,6 +411,11 @@ export default function PlayAlong() {
               <li>Green = Correct, Yellow = Partially correct, Red = Incorrect</li>
               <li>Your score increases for each correct match</li>
             </ul>
+            <div className="mt-3 pt-3 border-t border-blue-200">
+              <p className="text-xs text-blue-800">
+                <strong>Note:</strong> Songs now support custom timing! Each note can have different durations to match real song rhythms.
+              </p>
+            </div>
           </div>
 
           <div className="bg-white p-6 rounded-xl shadow-sm">

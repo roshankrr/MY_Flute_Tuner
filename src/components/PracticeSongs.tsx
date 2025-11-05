@@ -20,13 +20,15 @@ export default function PracticeSongs() {
   }, []);
 
   useEffect(() => {
-    let interval: number;
+    let interval: ReturnType<typeof setInterval> | undefined;
     if (isPracticing) {
       interval = setInterval(() => {
         setElapsedTime(prev => prev + 1);
       }, 1000);
     }
-    return () => clearInterval(interval);
+    return () => {
+      if (interval) clearInterval(interval);
+    };
   }, [isPracticing]);
 
   const loadSongs = async () => {
@@ -37,6 +39,8 @@ export default function PracticeSongs() {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
+      console.log('Loaded songs:', data?.length || 0, 'songs');
+      console.log('Song IDs:', data?.map(s => ({ id: s.id, title: s.title })));
       setSongs(data || []);
     } catch (error) {
       console.error('Error loading songs:', error);
@@ -92,22 +96,97 @@ export default function PracticeSongs() {
   };
 
   const deleteSong = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this song?')) return;
+    console.log('Attempting to delete song with ID:', id);
+    console.log('ID type:', typeof id);
+
+    // First, check if the song exists
+    const { data: existingSong, error: checkError } = await supabase
+      .from('practice_songs')
+      .select('*')
+      .eq('id', id)
+      .single();
+
+    console.log('Song existence check:', { existingSong, checkError });
+
+    if (checkError || !existingSong) {
+      alert(`❌ Song not found in database!\n\nThe song with ID ${id} does not exist.\nThis might be a sync issue. Try refreshing the page.`);
+      await loadSongs();
+      return;
+    }
+
+    if (!confirm(`Are you sure you want to delete "${existingSong.title}"?`)) {
+      console.log('Delete cancelled by user');
+      return;
+    }
 
     try {
-      const { error } = await supabase
+      console.log('Sending delete request to Supabase...');
+
+      const { error, data, status, statusText } = await supabase
         .from('practice_songs')
         .delete()
-        .eq('id', id);
+        .eq('id', id)
+        .select();
 
-      if (error) throw error;
-      loadSongs();
+      console.log('Delete response:', { error, data, status, statusText, deletedCount: data?.length });
+
+      if (error) {
+        console.error('Delete error details:', {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code
+        });
+
+        // Check if it's a permission issue
+        if (error.message?.includes('policy') ||
+            error.message?.includes('permission') ||
+            error.code === '42501' ||
+            error.code === 'PGRST301') {
+          alert('❌ PERMISSION DENIED\n\n' +
+                'The delete operation is blocked by Supabase Row Level Security.\n\n' +
+                'QUICK FIX:\n' +
+                '1. Go to https://supabase.com/dashboard\n' +
+                '2. Select your project\n' +
+                '3. Go to Table Editor → practice_songs table\n' +
+                '4. Click the shield icon and DISABLE RLS\n' +
+                '   OR\n' +
+                '5. Go to Authentication → Policies\n' +
+                '6. Add a DELETE policy for practice_songs table\n\n' +
+                `Error: ${error.message}`);
+        } else {
+          alert(`❌ Delete Failed\n\nError: ${error.message}\nCode: ${error.code || 'unknown'}`);
+        }
+        return;
+      }
+
+      // Check if any rows were actually deleted
+      if (!data || data.length === 0) {
+        console.warn('⚠️ Delete returned success but 0 rows were deleted');
+        alert('⚠️ Delete Issue\n\n' +
+              'The delete operation returned success, but no rows were deleted.\n' +
+              'This usually means:\n' +
+              '1. The song was already deleted\n' +
+              '2. RLS policy is preventing the delete\n' +
+              '3. Database sync issue\n\n' +
+              'Refreshing the song list...');
+        await loadSongs();
+        return;
+      }
+
+      console.log('Delete successful, refreshing songs...');
+      await loadSongs();
+
       if (selectedSong?.id === id) {
+        console.log('Resetting practice session...');
         resetPractice();
       }
-    } catch (error) {
-      console.error('Error deleting song:', error);
-      alert('Failed to delete song');
+
+      console.log('Song deleted successfully!');
+      alert('✅ Song deleted successfully!');
+    } catch (error: any) {
+      console.error('Unexpected error deleting song:', error);
+      alert(`❌ Unexpected Error\n\n${error.message || 'Unknown error occurred'}`);
     }
   };
 
@@ -164,6 +243,9 @@ export default function PracticeSongs() {
                   rows={3}
                   placeholder="e.g., Sa Sa Pa Pa Dha Dha Pa - Ma Ma Ga Ga Re Re Sa"
                 />
+                <p className="text-xs text-slate-500 mt-1">
+                  Tip: Add custom durations using "Note:duration_ms" format (e.g., Sa:1000 Re:500 Ga:1500)
+                </p>
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-2">
